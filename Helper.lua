@@ -16,7 +16,6 @@ function Events.New(Name, Date, Time)
 	Event.Time = Time
 	
 	table.insert(Events, Event)
-	return Event
 end
 
 function Events.Remove(index)
@@ -25,9 +24,9 @@ end
 
 function Events.GenerateArrayFromFile()
 	for i = 1, SKIN:GetVariable("Events", 1) do
-		local Name = SELF:GetOption("Name"..i)
-		local Date = SELF:GetOption("Date"..i)
-		local Time = SELF:GetOption("Time"..i)
+		local Name = SKIN:GetVariable("Name"..i, "New Event")
+		local Date = SKIN:GetVariable("Date"..i, "2030-04-20")
+		local Time = SKIN:GetVariable("Time"..i, "04:20:00")
 		
 		-- end of sections, break the loop
 		if (Name == '') and (Date == '') and (Time == '') then break end
@@ -40,12 +39,11 @@ function Events.GenerateArrayFromFile()
 end
 
 function Events.RegenerateArrayToFile()
-	print(#Events)
+	-- BUG???: While this shifts the elements around, it dose not remove old ones out, I don't know how to
 	for i, v in ipairs(Events) do
-		print(i, v)
-		SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Name"..i, v.Name, "Events.inc")
-		SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Date"..i, v.Date, "Events.inc")
-		SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Time"..i, v.Time, "Events.inc")
+		SKIN:Bang("!WriteKeyValue", "Variables", "Name"..i, v.Name, "Events.inc")
+		SKIN:Bang("!WriteKeyValue", "Variables", "Date"..i, v.Date, "Events.inc")
+		SKIN:Bang("!WriteKeyValue", "Variables", "Time"..i, v.Time, "Events.inc")
 	end
 end
 
@@ -54,7 +52,7 @@ local Events2Sections = {}
 
 function GenerateMetersFile()
 	-- idk how to make an assert if file can't be opened
-	local File = io.open(SKIN:MakePathAbsolute(SELF:GetOption("GeneratedFile")), "w")
+	local FILE = io.open(SKIN:MakePathAbsolute(SELF:GetOption("GeneratedFile")), "w")
 	
 	-- we start the necesary steps for writing to the file, a big ass warning
 	table.insert(Events2Sections,
@@ -72,10 +70,11 @@ function GenerateMetersFile()
 			[[
 			[TimestampMeasure%s]
 			Measure=Time
-			Timestamp=%sT%sZ
+			Timestamp=#Date%s#T#Time%s#Z
 			TimeStampFormat=%%Y-%%m-%%dT%%H:%%M:%%SZ
+			DynamicVariables=1
 			]],
-			i, v.Date, v.Time)
+			i, i, i)
 		)
 					
 		table.insert(Events2Sections,
@@ -94,11 +93,28 @@ function GenerateMetersFile()
 		table.insert(Events2Sections,
 			string.format(
 			[[
+			[InputTextMeasure%s]
+			Measure=Plugin
+			Plugin=InputText
+			H=(12*3*#Scale#)
+			FontSize=(12*#Scale#)
+			Command1=[!SetVariable "Name%s" "$UserInput$"][!WriteKeyValue "Variables" "Name%s" "[#Name%s]" "Events.inc"][!UpdateMeterGroup "Updatable"][!Redraw]
+			Command2=[!SetVariable "Date%s" "$UserInput$"][!WriteKeyValue "Variables" "Date%s" "[#Date%s]" "Events.inc"][!UpdateMeasure "TimestampMeasure%s"][!UpdateMeterGroup "Updatable"][!Redraw]
+			Command3=[!SetVariable "Time%s" "$UserInput$"][!WriteKeyValue "Variables" "Time%s" "[#Time%s]" "Events.inc"][!UpdateMeasure "TimestampMeasure%s"][!UpdateMeterGroup "Updatable"][!Redraw]
+			UpdateDivider=1
+			]],
+			i, i, i, i, i, i, i, i, i, i, i, i)
+		)
+		
+		--SolidColor=0 so it errors and defaults to a color
+		table.insert(Events2Sections,
+			string.format(
+			[[
 			[ContainerMeterForList%s]
 			Meter=Image
-			H=(100*#Scale#)
-			W=(400*#Scale#)
-			SolidColor=000000
+			W=(#ListWidth#*#Scale#)
+			H=(#ListHeigt#*#Scale#)
+			SolidColor=0
 			X=(12*#Scale#)
 			Y=(12*#Scale#)R
 			]],
@@ -112,23 +128,24 @@ function GenerateMetersFile()
 			[BackgroundMeter%s]
 			Meter=Shape
 			Container=ContainerMeterForList%s
-			Shape=Rectangle 0,0,400,100,4 | StrokeWidth 0 | Fill LinearGradient TheGradient | Scale #Scale#,#Scale#,0,0
+			Shape=Rectangle 0,0,#ListWidth#,#ListHeigt#,4 | StrokeWidth 0 | Fill LinearGradient TheGradient | Scale #Scale#,#Scale#,0,0
 			TheGradient=270 | #BackgroundFillSecondaryColor# ; -1.0 | #AccentColor# ; 10.0
 			]],
 			i, i)
 		)
 		
-		-- preferably change this to a variable
 		table.insert(Events2Sections,
 			string.format(
 			[[
 			[MeterEventTitle%s]
 			Meter=String
 			Container=ContainerMeterForList%s
-			Text=%s
+			DynamicVariables=1
+			Text=#Name%s#
 			MeterStyle=NameStyle
+			LeftMouseUpAction=[!CommandMeasure "InputTextMeasure%s" "ExecuteBatch 1"]
 			]],
-			i, i, v.Name)
+			i, i, i, i, i)
 		)
 		
 		table.insert(Events2Sections,
@@ -137,10 +154,12 @@ function GenerateMetersFile()
 			[MeterSubtitleDate%s]
 			Meter=String
 			Container=ContainerMeterForList%s
-			Text=%s
+			DynamicVariables=1
+			Text=#Date%s#
 			MeterStyle=SubtitleStyle
+			LeftMouseUpAction=[!CommandMeasure "InputTextMeasure%s" "ExecuteBatch 2"]
 			]],
-			i, i, v.Date)
+			i, i, i, i)
 		)
 		
 		table.insert(Events2Sections,
@@ -149,10 +168,12 @@ function GenerateMetersFile()
 			[MeterSubtitleTime%s]
 			Meter=String
 			Container=ContainerMeterForList%s
-			Text=%s
+			DynamicVariables=1
+			Text=#Time%s#
 			MeterStyle=SubtitleStyle
+			LeftMouseUpAction=[!CommandMeasure "InputTextMeasure%s" "ExecuteBatch 3"]
 			]],
-			i, i, v.Time)
+			i, i, i, i)
 		)
 		
 		table.insert(Events2Sections,
@@ -186,12 +207,14 @@ function GenerateMetersFile()
 			i, i, i)
 		)
 		
+		table.insert(Events2Sections, ";I have no idea why this number generates -> ")
+		
 	end
 	
 	-- string gsub to remove the annoying tab characters that get set because of the mess we've written
 	-- BUG: This most likely is the thing that introduces the bug that adds random numbers at the end of the file
-	File:write(string.gsub(table.concat(Events2Sections, "\n"), "\t", ""))
-	File:close()
+	FILE:write(string.gsub(table.concat(Events2Sections, "\n"), "\t", ""))
+	FILE:close()
 end
 
 --[[
