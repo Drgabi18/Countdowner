@@ -1,59 +1,62 @@
 Events = {
---[[
-["Names"] = "",
+--[[ [i] = {
+["Name"] = "",
 ["Date"] = Year-Month-Day,
 ["Time"] = Hour:Minute:Seconds
+}
 ]]
 }
 
-NoOfEvents = 0
-
-function RemoveEvent(index)
-	table.remove(Events, index)
-	NoOfEvents = #Events
-	SKIN:Bang("!WriteKeyValue", "Variables", "Events", (NoOfEvents-1) )
-	GenerateEvents(NoOfEvents, true)
+-- we doing OOP now
+function Events.New(Name, Date, Time)
+	local Event = {}
+	
+	Event.Name = Name
+	Event.Date = Date
+	Event.Time = Time
+	
+	table.insert(Events, Event)
+	return Event
 end
 
-function GenerateEvents(NoOfEvents, FromLua)
-	if not FromLua then
-		for i = 1, NoOfEvents do
-			Name = SELF:GetOption("Name"..i)
-			Date = SELF:GetOption("Date"..i)
-			Time = SELF:GetOption("Time"..i)
-			
-			-- end of sections, break the loop
-			if (Name == '') and (Date == '') and (Time == '') then break end
-			
-			-- if one is missing, error out
-			if (Name == '') or (Date == '') or (Time == '') then assert("Invalid Name/Date/Time, make sure they're all filled correctly.") end
-			
-			Events[i] = {["Name"] = Name, ["Date"] = Date, ["Time"] = Time}
-			
-			--print(Name, Date, Time)
-		end
-	else
-		print("Now creating events from Lua")
-		for i,v in ipairs(Events) do
-			print(i,v)
-			SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Name"..i, v["Name"], "Events.inc")
-			SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Date"..i, v["Date"], "Events.inc")
-			SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Time"..i, v["Time"], "Events.inc")
-		end
-		GenerateFile()
-		SKIN:Bang("!Refresh")
+function Events.Remove(index)
+	table.remove(Events, index)
+end
+
+function Events.GenerateArrayFromFile()
+	for i = 1, SKIN:GetVariable("Events", 1) do
+		local Name = SELF:GetOption("Name"..i)
+		local Date = SELF:GetOption("Date"..i)
+		local Time = SELF:GetOption("Time"..i)
+		
+		-- end of sections, break the loop
+		if (Name == '') and (Date == '') and (Time == '') then break end
+		
+		-- if one is missing, error out
+		if (Name == '') or (Date == '') or (Time == '') then assert("Invalid Name/Date/Time, make sure they're all filled correctly.") end
+		
+		Events.New(Name, Date, Time)
 	end
 end
 
-function GenerateFile()
+function Events.RegenerateArrayToFile()
+	print(#Events)
+	for i, v in ipairs(Events) do
+		print(i, v)
+		SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Name"..i, v.Name, "Events.inc")
+		SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Date"..i, v.Date, "Events.inc")
+		SKIN:Bang("!WriteKeyValue", SELF:GetName(), "Time"..i, v.Time, "Events.inc")
+	end
+end
+
+-- this is the file that we write all the sections to and then write to file
+local Events2Sections = {}
+
+function GenerateMetersFile()
 	-- idk how to make an assert if file can't be opened
 	local File = io.open(SKIN:MakePathAbsolute(SELF:GetOption("GeneratedFile")), "w")
-
-	print("GenerateFile() No of Events", NoOfEvents)
 	
-	GenerateEvents(NoOfEvents, false)
-	
-	-- we start the necesary steps for writing to the file
+	-- we start the necesary steps for writing to the file, a big ass warning
 	table.insert(Events2Sections,
 	[[; ==============================
 	; THIS FILE IS GENERATED AUTOMATICALLY THROUGH LUA
@@ -62,11 +65,8 @@ function GenerateFile()
 	; ==============================
 	]]
 	)
-	
-	print("GenerateFile() No of Events For Creating the Tables", NoOfEvents, #Events)
-	
-	for i=1, #Events do
 		
+	for i, v in ipairs(Events) do
 		table.insert(Events2Sections,
 			string.format(
 			[[
@@ -74,9 +74,8 @@ function GenerateFile()
 			Measure=Time
 			Timestamp=%sT%sZ
 			TimeStampFormat=%%Y-%%m-%%dT%%H:%%M:%%SZ
-			UpdateDivider=-1
 			]],
-			i, Events[i].Date, Events[i].Time)
+			i, v.Date, v.Time)
 		)
 					
 		table.insert(Events2Sections,
@@ -85,10 +84,11 @@ function GenerateFile()
 			[UptimeMeasure%s]
 			Measure=Uptime
 			SecondsValue=([TimestampMeasure%s:Timestamp]-[CurrentTime:Timestamp])
-			Format=%s
+			Format=#UptimeFormat#
+			UpdateDivider=1
 			DynamicVariables=1
 			]],
-			i, i, SKIN:GetVariable("UptimeFormat", "%4!i!d %3!i!h %2!i!m %1!i!s"))
+			i, i)
 		)
 		
 		table.insert(Events2Sections,
@@ -101,7 +101,6 @@ function GenerateFile()
 			SolidColor=000000
 			X=(12*#Scale#)
 			Y=(12*#Scale#)R
-			UpdateDivider=-1
 			]],
 			i)
 		)
@@ -115,7 +114,6 @@ function GenerateFile()
 			Container=ContainerMeterForList%s
 			Shape=Rectangle 0,0,400,100,4 | StrokeWidth 0 | Fill LinearGradient TheGradient | Scale #Scale#,#Scale#,0,0
 			TheGradient=270 | #BackgroundFillSecondaryColor# ; -1.0 | #AccentColor# ; 10.0
-			UpdateDivider=-1
 			]],
 			i, i)
 		)
@@ -129,9 +127,8 @@ function GenerateFile()
 			Container=ContainerMeterForList%s
 			Text=%s
 			MeterStyle=NameStyle
-			UpdateDivider=-1
 			]],
-			i, i, Events[i].Name)
+			i, i, v.Name)
 		)
 		
 		table.insert(Events2Sections,
@@ -143,7 +140,7 @@ function GenerateFile()
 			Text=%s
 			MeterStyle=SubtitleStyle
 			]],
-			i, i, Events[i].Date)
+			i, i, v.Date)
 		)
 		
 		table.insert(Events2Sections,
@@ -155,7 +152,7 @@ function GenerateFile()
 			Text=%s
 			MeterStyle=SubtitleStyle
 			]],
-			i, i, Events[i].Time)
+			i, i, v.Time)
 		)
 		
 		table.insert(Events2Sections,
@@ -167,6 +164,7 @@ function GenerateFile()
 			MeasureName=UptimeMeasure%s		
 			MeterStyle=TimeUntillStyle
 			X=[MeterEventTitle%s:X]
+			UpdateDivider=1
 			DynamicVariables=1
 			]],
 			i, i, i, i)
@@ -177,11 +175,13 @@ function GenerateFile()
 			[[
 			[MinusMeter%s]
 			Meter=String
-			Text=➖
+			Text=REMOVE
+			MeterStyle=NameStyle
+			FontSize=20
 			FontColor=FF0000
 			Container=ContainerMeterForList%s
 			X=R
-			LeftMouseUpAction=[!CommandMeasure "Everything" "RemoveEvent(%s)"]
+			LeftMouseUpAction=[!CommandMeasure "Everything" "Events.Remove(%s)"][!CommandMeasure "Everything" "Events.RegenerateArrayToFile()"][!SetVariable "Events" "([#Events]-1)"][!WriteKeyValue "Variables" "Events" "[#Events]" "Events.inc"][!WriteKeyValue "Everything" "ToRefresh" "1"][!Refresh]
 			]],
 			i, i, i)
 		)
@@ -189,23 +189,32 @@ function GenerateFile()
 	end
 	
 	-- string gsub to remove the annoying tab characters that get set because of the mess we've written
+	-- BUG: This most likely is the thing that introduces the bug that adds random numbers at the end of the file
 	File:write(string.gsub(table.concat(Events2Sections, "\n"), "\t", ""))
 	File:close()
 end
 
+--[[
+* Initialize function
+	* Get If the File needs to be refreshed, we don't wanna waste I/O
+		* If No, do nothing
+		* If Yes, Generate the Events and Write them to File
+* Events Handler
+	* Initialize the array of Events regardless of situation
+		* To get what events we have, we read the variable from the file
+	* To remove Rvents, we could decrease the number of the list (what we're going with) or regenerate the file
+	* To add new Events, we could do it in Rainmeter (what we're going with) or do it in Lua
+]]
+
+
 function Initialize()
-	-- table which gets written to the file
-	Events2Sections = {}
-	NoOfEvents = SKIN:GetVariable("Events", 1)	
-		
+	Events.GenerateArrayFromFile()
 	if SELF:GetOption("ToRefresh", "1") == "1" then
-		GenerateFile()
+		GenerateMetersFile()
 		SKIN:Bang("!WriteKeyValue", SELF:GetName(), "ToRefresh", "0")
 		SKIN:Bang("!Refresh")
 	else
 		SKIN:Bang("!HideMeter", "ErrorString")
 	end
-	
-	print("Initialize() function finished")
-	print("Initialize() No of Events", #Events)
 end
+
