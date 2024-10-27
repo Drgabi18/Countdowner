@@ -28,10 +28,7 @@ function Events.GenerateArrayFromFile()
 		local Date = SKIN:GetVariable("Date"..i, "2030-04-20")
 		local Time = SKIN:GetVariable("Time"..i, "04:20:00")
 		
-		-- end of sections, break the loop
-		if (Name == '') and (Date == '') and (Time == '') then break end
-		
-		-- if one is missing, error out
+		-- if one of the needed values is missing, error out
 		if (Name == '') or (Date == '') or (Time == '') then assert("Invalid Name/Date/Time, make sure they're all filled correctly.") end
 		
 		Events.New(Name, Date, Time)
@@ -39,7 +36,7 @@ function Events.GenerateArrayFromFile()
 end
 
 function Events.RegenerateArrayToFile()
-	-- BUG???: While this shifts the elements around, it dose not remove old ones out, I don't know how to
+	-- BUG: While this shifts the elements around and saves them to the file, it dose not remove old ones out, I don't know how to
 	for i, v in ipairs(Events) do
 		SKIN:Bang("!WriteKeyValue", "Variables", "Name"..i, v.Name, "Events.inc")
 		SKIN:Bang("!WriteKeyValue", "Variables", "Date"..i, v.Date, "Events.inc")
@@ -63,7 +60,8 @@ function GenerateMetersFile()
 	; ==============================
 	]]
 	)
-		
+	
+	-- is doing `string.format("str", i, i, i, i, i, i)` not an efficient way of doing this? yes, yes it isn't
 	for i, v in ipairs(Events) do
 		table.insert(Events2Sections,
 			string.format(
@@ -97,7 +95,9 @@ function GenerateMetersFile()
 			Measure=Plugin
 			Plugin=InputText
 			H=(12*3*#Scale#)
+			W=(100*2*#Scale#)
 			FontSize=(12*#Scale#)
+			SolidColor=#BackgroundFillSecondaryColor#
 			Command1=[!SetVariable "Name%s" "$UserInput$"][!WriteKeyValue "Variables" "Name%s" "[#Name%s]" "Events.inc"][!UpdateMeterGroup "Updatable"][!Redraw]
 			Command2=[!SetVariable "Date%s" "$UserInput$"][!WriteKeyValue "Variables" "Date%s" "[#Date%s]" "Events.inc"][!UpdateMeasure "TimestampMeasure%s"][!UpdateMeterGroup "Updatable"][!Redraw]
 			Command3=[!SetVariable "Time%s" "$UserInput$"][!WriteKeyValue "Variables" "Time%s" "[#Time%s]" "Events.inc"][!UpdateMeasure "TimestampMeasure%s"][!UpdateMeterGroup "Updatable"][!Redraw]
@@ -106,7 +106,6 @@ function GenerateMetersFile()
 			i, i, i, i, i, i, i, i, i, i, i, i)
 		)
 		
-		--SolidColor=0 so it errors and defaults to a color
 		table.insert(Events2Sections,
 			string.format(
 			[[
@@ -114,7 +113,7 @@ function GenerateMetersFile()
 			Meter=Image
 			W=(#ListWidth#*#Scale#)
 			H=(#ListHeigt#*#Scale#)
-			SolidColor=0
+			SolidColor=000000
 			X=(12*#Scale#)
 			Y=(12*#Scale#)R
 			]],
@@ -176,6 +175,23 @@ function GenerateMetersFile()
 			i, i, i, i)
 		)
 		
+		-- character variable because lua is utf-8 :(
+		table.insert(Events2Sections,
+			string.format(
+			[[
+			[MinusMeter%s]
+			Meter=String
+			Text=[\x2796]
+			MeterStyle=SubtitleStyle
+			FontColor=FF0000
+			Group=Hideable
+			Container=ContainerMeterForList%s
+			X=(12*#Scale#)R
+			LeftMouseUpAction=[!CommandMeasure "Everything" "Events.Remove(%s)"][!CommandMeasure "Everything" "Events.RegenerateArrayToFile()"][!SetVariable "Events" "([#Events]-1)"][!WriteKeyValue "Variables" "Events" "[#Events]" "Events.inc"][!WriteKeyValue "Everything" "ToRefresh" "1"][!Refresh]
+			]],
+			i, i, i)
+		)
+		
 		table.insert(Events2Sections,
 			string.format(
 			[[
@@ -185,35 +201,19 @@ function GenerateMetersFile()
 			MeasureName=UptimeMeasure%s		
 			MeterStyle=TimeUntillStyle
 			X=[MeterEventTitle%s:X]
+			Y=(50*#Scale#)
 			UpdateDivider=1
 			DynamicVariables=1
 			]],
-			i, i, i, i)
+			i, i, i, i, i, i)
 		)
-		
-		table.insert(Events2Sections,
-			string.format(
-			[[
-			[MinusMeter%s]
-			Meter=String
-			Text=REMOVE
-			MeterStyle=NameStyle
-			FontSize=20
-			FontColor=FF0000
-			Container=ContainerMeterForList%s
-			X=R
-			LeftMouseUpAction=[!CommandMeasure "Everything" "Events.Remove(%s)"][!CommandMeasure "Everything" "Events.RegenerateArrayToFile()"][!SetVariable "Events" "([#Events]-1)"][!WriteKeyValue "Variables" "Events" "[#Events]" "Events.inc"][!WriteKeyValue "Everything" "ToRefresh" "1"][!Refresh]
-			]],
-			i, i, i)
-		)
-		
-		table.insert(Events2Sections, ";I have no idea why this number generates -> ")
-		
+				
 	end
 	
 	-- string gsub to remove the annoying tab characters that get set because of the mess we've written
-	-- BUG: This most likely is the thing that introduces the bug that adds random numbers at the end of the file
-	FILE:write(string.gsub(table.concat(Events2Sections, "\n"), "\t", ""))
+	-- the `X, _` is because `:write` also adds the tuple, which we don't want
+	local ConcatonatedTable, _ = string.gsub(table.concat(Events2Sections, "\n"), "\t", "")
+	FILE:write(ConcatonatedTable)
 	FILE:close()
 end
 
