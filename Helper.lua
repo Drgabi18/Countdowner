@@ -187,6 +187,7 @@ function GenerateMetersFile()
 			Group=Hideable
 			Container=ContainerMeterForList%s
 			X=(12*#Scale#)R
+			ToolTipText=Remove the event
 			LeftMouseUpAction=[!CommandMeasure "Everything" "Events.Remove(%s)"][!CommandMeasure "Everything" "Events.RegenerateArrayToFile()"][!SetVariable "Events" "([#Events]-1)"][!WriteKeyValue "Variables" "Events" "[#Events]" "Events.inc"][!WriteKeyValue "Everything" "ToRefresh" "1"][!Refresh]
 			]],
 			i, i, i)
