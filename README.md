@@ -22,13 +22,13 @@ DynamicVariables=1
 
 Now onto my skin
 
-# Countdowner
+# Cowntdowner
 A simple skin that shows the time until/since a certain time stamp. You can add and remove Events from the list depending on what you need. You can customize some variables to change the look, scale and Uptime Format.
 
 ![The skin in action](./Countdowner.png)
 
 # Installation
-**Get the latest .rmskin from the [Releases](https://github.com/Drgabi18/Countdowner/releases) tab**
+**Get the latest .rmskin from the [Releases](https://github.com/Drgabi18/Cowntdowner/releases) tab**
 
 # Drawbacks
 * The skin has no detection system for after the time gets reached, instead it starts looping the time since that event (for some reason, Uptime's `SecondsValue` dose `Abs(x)`, I would have used `IfCondition = #CurrentSection# < 0` if it did to resolve this, I just don't wanna create a separate `Calc` measure for this that's all lol)
